@@ -89,13 +89,22 @@ namespace Trasgo
             {
                 Name = "spotify_connect",
                 Icon = "♫",
-                Description = "Conecta Spotify a Trasgo (una sola vez, ~1 minuto) para poder poner canciones, artistas y playlists concretas sin tocar ninguna ventana. " +
-                              "Abre la página de Spotify Developers, deja la Redirect URI en el portapapeles y detecta solo el Client ID cuando el usuario lo copie; después abre el login. Úsalo cuando pidan 'conecta Spotify' o cuando una herramienta diga que Spotify no está conectado y el usuario quiera arreglarlo.",
-                Schema = Schema(null),
-                Summary = a => "conectar Spotify",
+                Description = "Conecta (o reconecta) Spotify a Trasgo (~1 minuto) para poder poner canciones, artistas y playlists concretas sin tocar ninguna ventana. " +
+                              "Abre el login de Spotify en el navegador; el usuario solo tiene que iniciar sesión y copiar la URL a la que le lleva (Ctrl+L y Ctrl+C). " +
+                              "Úsalo cuando pidan 'conecta Spotify', cuando otra herramienta diga que el permiso caducó, o con force=true si dice que ya está conectado pero falla.",
+                Schema = Schema(null, "force", B("Reconectar aunque figure como conectado (token caducado o revocado)")),
+                Summary = a => "conectar Spotify" + (F(a, "force", false) ? " (forzado)" : ""),
                 Run = (a, host) =>
                 {
-                    if (SpotifyApi.Linked) return ToolResult.Ok("Spotify ya está conectado.");
+                    if (SpotifyApi.Linked && !F(a, "force", false))
+                    {
+                        var health = SpotifyApi.HealthCheck();
+                        if (health == "ok") return ToolResult.Ok("Spotify ya está conectado y el token funciona. Si una herramienta falló, di 'reconecta Spotify' y lo rehago.");
+                        // token present but dead: wipe it so the connect flow can start clean
+                        var cfg = Config.Current; cfg.spotify_refresh_token = ""; try { cfg.Save(); } catch { }
+                        SpotifyApi.InvalidateToken();
+                        Log.Write("spotify: token muerto (" + health + "), reconectando");
+                    }
                     var resp = Ipc.Request(Json.Obj("op", "spotify_connect"), 3000);
                     if (resp == null) return ToolResult.Err("Trasgo no está corriendo en segundo plano; abre Ajustes → Apps → Conectar Spotify.");
                     return ToolResult.Ok(Json.Str(resp, "message") ?? "Conexión iniciada.");

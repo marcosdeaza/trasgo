@@ -212,6 +212,9 @@ namespace Trasgo
             catch (Exception ex) { return Util.OneLine(ex.Message, 140); }
         }
 
+        /// <summary>Throws away the cached access token (e.g. after the refresh token was replaced).</summary>
+        public static void InvalidateToken() { lock (_lock) { _access = null; _expires = DateTime.MinValue; } }
+
         public sealed class Resp { public int Status; public object Body; public string Raw; }
 
         public static async Task<Resp> Call(HttpMethod method, string path, object body, CancellationToken ct, string clientId = null, string refresh = null)
