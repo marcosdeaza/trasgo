@@ -338,7 +338,7 @@ namespace Trasgo
 
         public static async Task<string> Search(string q, string types, int limit, CancellationToken ct)
         {
-            var r = await Call(HttpMethod.Get, "/search?q=" + Uri.EscapeDataString(q) + "&type=" + types + "&limit=" + limit + "&market=from_token", null, ct).ConfigureAwait(false);
+            var r = await Call(HttpMethod.Get, "/search?q=" + Uri.EscapeDataString(q) + "&type=" + types + "&limit=" + limit + "", null, ct).ConfigureAwait(false);
             if (r.Status >= 300) throw new Exception(ErrMsg(r));
             var sb = new StringBuilder();
             foreach (var t in types.Split(','))
@@ -425,7 +425,7 @@ namespace Trasgo
             string label = q;
             if (!q.StartsWith("spotify:"))
             {
-                var r = await Call(HttpMethod.Get, "/search?q=" + Uri.EscapeDataString(q) + "&type=track&limit=1&market=from_token", null, ct).ConfigureAwait(false);
+                var r = await Call(HttpMethod.Get, "/search?q=" + Uri.EscapeDataString(q) + "&type=track&limit=1", null, ct).ConfigureAwait(false);
                 var it = Json.Get(r.Body, "tracks", "items", 0);
                 if (it == null) return "No encuentro «" + q + "».";
                 uri = Json.Str(it, "uri"); label = Json.Str(it, "name") + " — " + Artists(it);
