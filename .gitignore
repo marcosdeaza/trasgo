@@ -1,0 +1,8 @@
+dist/
+*.rsp
+*.rsp.out
+*.rsp.err
+*.pdb
+.vs/
+bin/
+obj/

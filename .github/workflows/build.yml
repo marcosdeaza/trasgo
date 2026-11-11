@@ -1,0 +1,36 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build + selftest
+        shell: pwsh
+        run: ./build.ps1 -Test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trasgo
+          path: dist/trasgo.exe
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $hash = (Get-FileHash dist/trasgo.exe -Algorithm SHA256).Hash.ToLower()
+          gh release view $env:GITHUB_REF_NAME 2>$null
+          if ($LASTEXITCODE -ne 0) { gh release create $env:GITHUB_REF_NAME dist/trasgo.exe --title "Trasgo $env:GITHUB_REF_NAME" --notes "SHA-256 trasgo.exe: ``$hash``" }
+          else { gh release upload $env:GITHUB_REF_NAME dist/trasgo.exe --clobber }
