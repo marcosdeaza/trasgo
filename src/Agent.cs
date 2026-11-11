@@ -252,6 +252,7 @@ Sistema: Windows (" + Environment.OSVersion.VersionString + @"), usuario de Wind
             int mark = _messages.Count;
             _messages.Add(Json.Obj("role", "user", "content", Prompt.Context() + "\n\n" + userText));
             var tools = Tools.All.Select(t => (object)Json.Obj("type", "function", "function", Json.Obj("name", t.Name, "description", t.Description, "parameters", t.Schema))).ToList();
+            Log.Write("turn tools=" + tools.Count + " model=" + _c.compat_model);
             try
             {
                 for (int step = 0; step < _c.max_steps; step++)
@@ -273,6 +274,7 @@ Sistema: Windows (" + Environment.OSVersion.VersionString + @"), usuario de Wind
                     {
                         ct.ThrowIfCancellationRequested();
                         var name = Json.Str(call, "function", "name");
+                        Log.Write("model call: [" + name + "] args=" + Util.OneLine(Json.Str(call, "function", "arguments"), 120));
                         Dictionary<string, object> input;
                         object parsed;
                         input = Json.TryParse(Json.Str(call, "function", "arguments") ?? "{}", out parsed) ? (parsed as Dictionary<string, object> ?? new Dictionary<string, object>()) : new Dictionary<string, object>();

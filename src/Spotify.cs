@@ -240,7 +240,7 @@ namespace Trasgo
         {
             var m = Json.Str(r.Body, "error", "message") ?? Util.OneLine(r.Raw, 160);
             if (r.Status == 403 && m.IndexOf("premium", StringComparison.OrdinalIgnoreCase) >= 0) return "Spotify dice que controlar la reproducción requiere Premium.";
-            if (r.Status == 403) return "Spotify 403: " + m + " (¿tu cuenta está añadida como usuario en tu app de developer.spotify.com?)";
+            if (r.Status == 403) return "Spotify 403: " + m + " (si pasa siempre: añade tu cuenta de Spotify como usuario de tu app en developer.spotify.com → Users and Access)";
             return "Spotify " + r.Status + ": " + m;
         }
 
@@ -278,7 +278,8 @@ namespace Trasgo
         static async Task<string> Player(HttpMethod m, string path, object body, CancellationToken ct)
         {
             var r = await Call(m, path, body, ct).ConfigureAwait(false);
-            if (r.Status == 404)
+            // 404 = sin dispositivo; 403 en play = quirk de Spotify cuando no hay ningún dispositivo activo
+            if (r.Status == 404 || (r.Status == 403 && path.Contains("/play")))
             {
                 var dev = await EnsureDevice(ct).ConfigureAwait(false);
                 path += (path.Contains("?") ? "&" : "?") + "device_id=" + Uri.EscapeDataString(dev);
@@ -371,7 +372,7 @@ namespace Trasgo
         public static async Task<string> SearchAndPlay(string q, string kind, bool shuffle, CancellationToken ct)
         {
             kind = string.IsNullOrWhiteSpace(kind) ? "track" : kind;
-            var r = await Call(HttpMethod.Get, "/search?q=" + Uri.EscapeDataString(q) + "&type=" + kind + "&limit=5&market=from_token", null, ct).ConfigureAwait(false);
+            var r = await Call(HttpMethod.Get, "/search?q=" + Uri.EscapeDataString(q) + "&type=" + kind + "&limit=5", null, ct).ConfigureAwait(false);
             if (r.Status >= 300) throw new Exception(ErrMsg(r));
             var items = Json.List(r.Body, kind + "s", "items").Where(x => x != null).ToList();
             if (items.Count == 0) return "No encuentro " + kind + " «" + q + "».";

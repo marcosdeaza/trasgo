@@ -79,12 +79,18 @@ namespace Trasgo
             catch { return ""; }
         }
 
-        public static Tool Find(string name) { return All.FirstOrDefault(t => t.Name == name); }
+        public static Tool Find(string name)
+        {
+            if (name == null) return null;
+            var all = All;
+            return all.FirstOrDefault(t => t.Name == name)
+                ?? all.FirstOrDefault(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)); // B.AI a veces manda "Spotify_play" en CamelCase
+        }
 
         public static ToolResult Execute(string name, Dictionary<string, object> args, IToolHost host)
         {
             var t = Find(name);
-            if (t == null) return ToolResult.Err("Herramienta desconocida: " + name);
+            if (t == null) { Log.Write("tool desconocida: [" + (name ?? "<null>") + "]"); return ToolResult.Err("Herramienta desconocida: " + name); }
             var sw = Stopwatch.StartNew();
             try
             {
