@@ -454,7 +454,7 @@ namespace Trasgo
 
         public static string Start(Action<string, double> status)
         {
-            if (Interlocked.Exchange(ref _running, 1) == 1) return "Ya estoy en ello: copia el Client ID de tu app de Spotify y sigo solo.";
+            if (Interlocked.Exchange(ref _running, 1) == 1) return "Ya estoy en ello: sigue los pasos del bocadillo.";
             var th = new Thread(() =>
             {
                 try { Run(status); }
@@ -463,7 +463,10 @@ namespace Trasgo
             }) { IsBackground = true, Name = "spotify-connect" };
             th.SetApartmentState(ApartmentState.STA);
             th.Start();
-            return "Te he abierto Spotify Developers. Crea una app (nombre: Trasgo, marca Web API) y pega la Redirect URI que te he dejado en el portapapeles; luego copia el Client ID y del resto me encargo yo.";
+            var hasId = IdRx.IsMatch((Config.Current.spotify_client_id ?? "").Trim());
+            return hasId
+                ? "Se te abre el navegador con el login de Spotify: inicia sesión, acepta, y copia la URL a la que te lleva (Ctrl+L y Ctrl+C). Del resto me encargo yo."
+                : "Te he abierto Spotify Developers. Crea una app (nombre: Trasgo, marca Web API) y pega la Redirect URI que te he dejado en el portapapeles; luego copia el Client ID y del resto me encargo yo.";
         }
 
         static readonly System.Text.RegularExpressions.Regex IdRx = new System.Text.RegularExpressions.Regex(@"^\s*([0-9a-f]{32})\s*$");
