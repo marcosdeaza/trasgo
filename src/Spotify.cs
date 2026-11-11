@@ -39,14 +39,15 @@ namespace Trasgo
         public static async Task<string> Login(string clientId, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(clientId)) throw new Exception("Falta el Client ID de Spotify.");
-            return RedirectIsLoopback ? await LoginLoopback(clientId, ct).ConfigureAwait(false) : await LoginClipboard(clientId, ct).ConfigureAwait(false);
-        }
-
-        /// <summary>Standard PKCE flow: opens the browser, waits for the redirect on 127.0.0.1 and stores the refresh token.</summary>
-        static async Task<string> LoginLoopback(string clientId, CancellationToken ct)
-        {
             var verifier = Pkce(out var challenge, out var state);
             var url = AuthUrl(clientId, challenge, state);
+            var code = RedirectIsLoopback ? await LoopbackCode(url, state, ct).ConfigureAwait(false) : ClipboardCode(url, ct);
+            return await FinishLogin(clientId, code, verifier, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>Standard PKCE flow: opens the browser and waits for the redirect on 127.0.0.1.</summary>
+        static async Task<string> LoopbackCode(string url, string state, CancellationToken ct)
+        {
             var listener = new TcpListener(IPAddress.Loopback, Port);
             listener.Start();
             try
@@ -81,32 +82,30 @@ namespace Trasgo
                     }
                 }
                 if (error != null) throw new Exception("Spotify rechazó el acceso: " + error);
-                return await FinishLogin(clientId, code, verifier, ct).ConfigureAwait(false);
+                return code;
             }
             finally { listener.Stop(); }
         }
 
         /// <summary>Flow for a custom redirect (p. ej. la URL de GitHub): opens the browser and watches the clipboard —
-        /// the user just logs in, copies the redirected URL (Ctrl+L, Ctrl+C) and that's it.</summary>
-        static async Task<string> LoginClipboard(string clientId, CancellationToken ct)
+        /// the user just logs in, copies the redirected URL (Ctrl+L, Ctrl+C) and that's it. Synchronous on purpose:
+        /// the clipboard only habla con hilos STA, y este método corre en el hilo STA de SpotifyConnect.</summary>
+        static string ClipboardCode(string url, CancellationToken ct)
         {
-            var verifier = Pkce(out var challenge, out var state);
-            var url = AuthUrl(clientId, challenge, state);
             Util.OpenShell(url);
             try { System.Windows.Forms.Clipboard.SetText(""); } catch { }
-            string code = null;
             var deadline = DateTime.UtcNow.AddMinutes(5);
-            while (code == null)
+            while (true)
             {
-                if (DateTime.UtcNow > deadline) throw new TimeoutException("No he visto la URL de Spotify en el portapapeles (5 min).");
                 ct.ThrowIfCancellationRequested();
-                await Task.Delay(600, ct).ConfigureAwait(false);
+                if (DateTime.UtcNow > deadline) throw new TimeoutException("No he visto la URL de Spotify en el portapapeles (5 min).");
+                Thread.Sleep(600);
                 string clip = null;
                 try { if (System.Windows.Forms.Clipboard.ContainsText()) clip = System.Windows.Forms.Clipboard.GetText(); } catch { }
                 if (string.IsNullOrWhiteSpace(clip)) continue;
-                code = ExtractCode(clip);
+                var code = ExtractCode(clip);
+                if (code != null) return code;
             }
-            return await FinishLogin(clientId, code, verifier, ct).ConfigureAwait(false);
         }
 
         /// <summary>Pulls the ?code= out of a pasted URL (or a bare code). Returns null if it isn't one.</summary>
